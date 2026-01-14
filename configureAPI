@@ -1,0 +1,21 @@
+import json
+
+# Load the policy at startup
+with open("bank_policy.json", "r") as f:
+    policy = json.load(f)
+
+@app.post("/predict")
+async def predict(request: CustomerRequest):
+    data = torch.tensor([[request.income, request.credit_score, request.debt]])
+    with torch.no_grad():
+        prob = model(data).item()
+    
+    # Use the CONFIG instead of hard-coded numbers
+    debt_limit = policy["max_debt_ratio"]
+    failed = request.debt > debt_limit
+    
+    return {
+        "status": "DENIED" if (failed or prob < policy["approval_threshold"]) else "APPROVED",
+        "compliance_notes": f"Debt exceeds current policy limit of {debt_limit}" if failed else "None",
+        "policy_version": policy["version"]
+    }
