@@ -1,0 +1,35 @@
+import gradio as gr
+import requests
+import json
+
+def banking_chatbot(message, history):
+    # 1. In a real scenario, we'd use an LLM to extract these numbers from text.
+    # For now, let's assume the user provides: Income, Credit, Debt (e.g., "1.0, 0.8, 0.2")
+    try:
+        parts = message.split(",")
+        income, credit, debt = float(parts[0]), float(parts[1]), float(parts[2])
+        
+        # 2. Call your "Dockerized" API (Make sure your server is still running!)
+        url = "http://0.0.0.0:8000/predict"
+        payload = {"income": income, "credit_score": credit, "debt": debt}
+        response = requests.post(url, json=payload)
+        data = response.json()
+        
+        # 3. Use our 'Language Brain' logic to format the response
+        if data["compliance_status"] == "FAILED":
+            return f"❌ Application Denied. Reason: {data['compliance_notes']}"
+        
+        status_emoji = "✅" if data["final_decision"] == "Approved" else "Spectral ❌"
+        return f"{status_emoji} Decision: {data['final_decision']}. (AI Confidence: {data['ai_confidence']})"
+        
+    except Exception as e:
+        return "Please enter data as: Income, Credit, Debt (e.g., 0.8, 0.7, 0.1)"
+
+# 4. Launch the UI
+demo = gr.ChatInterface(
+    fn=banking_chatbot, 
+    title="Compliant Banking Agent",
+    description="Enter customer metrics separated by commas: Income (0-1), Credit (0-1), Debt (0-1)"
+)
+
+demo.launch(share=True)
