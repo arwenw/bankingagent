@@ -1,0 +1,7 @@
+%%writefile bank_policy.json
+{
+    "max_debt_ratio": 0.65,
+    "min_credit_score": 0.3,
+    "approval_threshold": 0.5,
+    "version": "2026.01.B"
+}
