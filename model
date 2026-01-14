@@ -1,0 +1,208 @@
+# week 1 examples.
+import torch
+
+# 1. Check for GPU (The 'Engine')
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
+
+# 2. Create a 2D Tensor (Like a mini-spreadsheet of 3 customers)
+# Data: [Income, Credit Score, Debt Amount]
+customer_data = torch.tensor([
+    [50000, 720, 15000],
+    [30000, 580, 45000],
+    [120000, 810, 5000]
+], dtype=torch.float32)
+
+# 3. Move that data to the GPU!
+customer_data = customer_data.to(device)
+
+print(f"Customer Data Shape: {customer_data.shape}")
+print(customer_data)
+
+# 1. Our "Weights" (The bank's secret formula)
+# Each number corresponds to: [Income, Score, Debt]
+weights = torch.tensor([0.8, 1.2, -0.5], device=device)
+
+# 2. Matrix Multiplication (The 'Dot Product')
+# This multiplies each customer's data by the weights and sums them up
+risk_scores = torch.matmul(customer_data, weights)
+
+print("Calculated Risk Scores for 3 Customers:")
+print(risk_scores)
+
+# Week 2 - create liner layer so model learn from historical data and create weights on its own
+
+
+
+import torch.nn as nn
+
+# 1. Define a Linear Layer
+# input_dim=3 (Income, Score, Debt)
+# output_dim=1 (The final Risk Score)
+layer = nn.Linear(in_features=3, out_features=1).to(device)
+
+# 2. Look at the weights PyTorch created for you
+print("PyTorch's Initial Random Weights:")
+print(layer.weight)
+print("\nPyTorch's Initial Bias:")
+print(layer.bias)
+
+# 3. Pass your customer data through the layer
+# Note: We use customer_data from the previous step
+predictions = layer(customer_data)
+
+print("\nModel's First 'Random' Predictions:")
+print(predictions)
+
+
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+# 1. GENERATE SYNTHETIC HISTORICAL DATA (100 Customers)
+torch.manual_seed(42) # For reproducibility
+X = torch.rand(100, 3) # 100 customers with 3 features [Income, Credit, Debt]
+
+# Create "True" labels based on a logical rule:
+# Target = (Income * 0.8) + (Credit * 1.2) - (Debt * 0.9)
+# We add a little 'noise' because reality is messy
+true_weights = torch.tensor([0.8, 1.2, -0.9])
+y = torch.matmul(X, true_weights).unsqueeze(1) + torch.randn(100, 1) * 0.05
+
+# 2. THE SCIENTIST'S UPGRADE: A Multi-Layer Model
+model = nn.Sequential(
+    nn.Linear(3, 5),   # Hidden Layer (Model 'thinks' about features)
+    nn.ReLU(),         # Non-linearity (The 'Tipping Point' logic)
+    nn.Linear(5, 1),   # Output Layer
+    nn.Sigmoid()       # Squashes output between 0 and 1 (Probability of Approval)
+)
+
+# 3. TRAIN
+optimizer = optim.Adam(model.parameters(), lr=0.05)
+criterion = nn.BCELoss() # Binary Cross Entropy (better for 0 to 1 targets)
+
+# We normalize y to be between 0 and 1 for the Sigmoid
+y_norm = torch.sigmoid(y)
+
+for epoch in range(500):
+    preds = model(X)
+    loss = criterion(preds, y_norm)
+    optimizer.zero_grad(); loss.backward(); optimizer.step()
+    if epoch % 100 == 0: print(f"Epoch {epoch}, Loss: {loss.item():.4f}")
+
+# 4. TEST ON A "BAD" CUSTOMER
+bad_customer = torch.tensor([[0.1, 0.2, 0.9]]) # Low income, low credit, high debt
+print(f"\nProbability of Approval for Bad Customer: {model(bad_customer).item():.4f}")
+
+
+
+
+
+# Save only the 'Learned Weights' (The State Dict)
+torch.save(model.state_dict(), "banking_model.pth")
+
+print("Model saved as banking_model.pth!")
+
+# --- TO RELOAD IT LATER ---
+# 1. Create the 'Empty' architecture again
+new_model = nn.Sequential(
+    nn.Linear(3, 5),
+    nn.ReLU(),
+    nn.Linear(5, 1),
+    nn.Sigmoid()
+)
+
+# 2. Load the saved weights into the empty architecture
+new_model.load_state_dict(torch.load("banking_model.pth"))
+new_model.eval() # Set to 'Evaluation Mode' (No more learning)
+
+print("Model reloaded and ready for production!")
+
+# test on comparing with two similar customer
+
+# Customer A: High Income (1.0), High Credit (1.0), LOW Debt (0.1)
+customer_a = torch.tensor([[1.0, 1.0, 0.1]], device=device)
+
+# Customer B: High Income (1.0), High Credit (1.0), HIGH Debt (0.9)
+customer_b = torch.tensor([[1.0, 1.0, 0.9]], device=device)
+
+print(f"Good Debt Approval: {model(customer_a).item():.4f}")
+print(f"Bad Debt Approval: {model(customer_b).item():.4f}")
+
+# 1. NEW LOGIC: Debt is now a "Dealbreaker"
+# We generate 1000 customers this time (Law of Large Numbers)
+X_new = torch.rand(1000, 3)
+
+def calculate_strict_target(features):
+    income, credit, debt = features
+    # If debt is > 0.7, they are REJECTED (Target 0)
+    if debt > 0.7:
+        return 0.0
+    # Otherwise, use a mix of income and credit
+    score = (income * 0.5) + (credit * 0.5)
+    return 1.0 if score > 0.5 else 0.0
+
+y_new = torch.tensor([[calculate_strict_target(x)] for x in X_new])
+
+# 2. RETRAIN (Using your 'Bigger' architecture)
+model = nn.Sequential(
+    nn.Linear(3, 128),
+    nn.ReLU(),
+    nn.Linear(128, 1),
+    nn.Sigmoid()
+)
+
+optimizer = optim.Adam(model.parameters(), lr=0.01)
+criterion = nn.BCELoss()
+
+for epoch in range(300):
+    optimizer.zero_grad()
+    loss = criterion(model(X_new), y_new)
+    loss.backward()
+    optimizer.step()
+
+# 3. TEST THE BAD CUSTOMER AGAIN
+bad_customer = torch.tensor([[1.0, 1.0, 0.9]]) # High Income/Credit, but DEADLY DEBT
+print(f"New Approval Probability for bad customer: {model(bad_customer).item():.4f}")
+
+good_customer = torch.tensor([[1.0, 1.0, 0.1]]) # High Income/Credit, low DEBT
+print(f"New Approval Probability for good customer: {model(good_customer).item():.4f}")
+
+
+
+
+from sklearn.model_selection import train_test_split
+
+# 1. Take our 1000 customers and split them
+# X_train: Data to study | X_test: Data for the final exam
+# y_train: Answers to study | y_test: Answers for the final exam
+X_train, X_test, y_train, y_test = train_test_split(
+    X_new, y_new, test_size=0.2, random_state=42
+)
+
+# 2. Train ONLY on the training set
+for epoch in range(300):
+    optimizer.zero_grad()
+    # Notice we only use X_train here!
+    train_preds = model(X_train)
+    loss = criterion(train_preds, y_train)
+    loss.backward()
+    optimizer.step()
+
+# 3. THE MOMENT OF TRUTH: Evaluate on the Test Set
+model.eval() # Turn off 'learning mode'
+with torch.no_grad(): # Don't calculate gradients (saves memory)
+    test_preds = model(X_test)
+    # Convert probabilities (> 0.5) to binary (0 or 1)
+    predictions = (test_preds > 0.5).float()
+
+    # Calculate Accuracy
+    correct = (predictions == y_test).float().sum()
+    accuracy = correct / y_test.shape[0]
+
+print(f"Final Exam Accuracy: {accuracy.item() * 100:.2f}%")
+
+
+
+
