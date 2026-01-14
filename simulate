@@ -1,0 +1,25 @@
+# 1. Simulate the API Output (from your Docker-style service)
+api_response = {
+    "ai_confidence": 0.0957,
+    "compliance_status": "FAILED",
+    "compliance_notes": "Debt-to-Income ratio exceeds regulatory safety limits.",
+    "final_decision": "Denied"
+}
+
+# 2. The "Language Brain" Logic (System Prompt)
+system_prompt = """
+You are a Compliant Banking Agent. Your goal is to explain loan decisions 
+with empathy while remaining strictly compliant with the rules.
+"""
+
+def generate_agent_explanation(data):
+    if data["compliance_status"] == "FAILED":
+        return f"I've looked into this for you. Unfortunately, we cannot move forward because {data['compliance_notes']}"
+    elif data["final_decision"] == "Denied":
+        return "Based on our automated risk assessment, your score didn't meet our current threshold for approval."
+    else:
+        return "Great news! Your application looks solid and has been approved."
+
+# 3. The Result
+explanation = generate_agent_explanation(api_response)
+print(f"AGENT SAYS: {explanation}")
