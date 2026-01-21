@@ -1,0 +1,23 @@
+%%writefile .github/workflows/ml_tests.yml
+name: ML Model Compliance Check
+
+on: [push] # Run this every time I push code
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          pip install torch fastapi
+
+      - name: Run Compliance Test
+        run: python test_model.py
