@@ -1,0 +1,27 @@
+%%writefile test_model.py
+import torch
+import torch.nn as nn
+
+# Re-define the architecture for the test
+class BankingBrain(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.network = nn.Sequential(nn.Linear(3, 64), nn.ReLU(), nn.Linear(64, 1), nn.Sigmoid())
+    def forward(self, x): return self.network(x)
+
+def test_logic_consistency():
+    model = BankingBrain()
+    model.load_state_dict(torch.load("banking_model.pth"))
+    model.eval()
+    
+    # Test Case: High Debt (0.9)
+    test_input = torch.tensor([[1.0, 1.0, 0.9]])
+    with torch.no_grad():
+        prediction = model(test_input).item()
+    
+    # The 'Assertion': If the model approves someone with 90% debt, the test FAILS
+    assert prediction < 0.5, f"Compliance Risk! Model approved high debt with score {prediction}"
+    print("Test Passed: Model is respecting debt boundaries.")
+
+if __name__ == "__main__":
+    test_logic_consistency()
